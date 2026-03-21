@@ -18,7 +18,6 @@ export async function POST(request: Request) {
     return redirect('/login')
   }
 
-  let redirectUrl = ''
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/pods`, {
       method: 'POST',
@@ -36,15 +35,16 @@ export async function POST(request: Request) {
     if (!res.ok) {
       const errText = await res.text()
       console.error("Backend error creating pod:", errText)
-      redirectUrl = '/templates?error=Failed to deploy pod'
-    } else {
-      const pod = await res.json()
-      redirectUrl = `/pods/${pod.ID}`
+      return redirect('/templates?error=Failed to deploy pod')
     }
+
+    const pod = await res.json()
+    console.log("Pod created:", pod)
+    // Redirigir inmediatamente a la página del pod (sin esperar a que esté ready)
+    return redirect(`/pods/${pod.ID}`)
   } catch (error) {
     console.error("Failed to deploy pod:", error)
-    redirectUrl = '/templates?error=Network Error'
+    return redirect('/templates?error=Network Error')
   }
-
-  return redirect(redirectUrl)
 }
+

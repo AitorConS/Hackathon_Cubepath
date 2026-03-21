@@ -1,11 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/utils/supabase/client'
 import { Server, ArrowRight, X, Loader2 } from 'lucide-react'
 
 export default function TemplateCard({ tpl }: { tpl: any }) {
+  const router = useRouter()
   const [showModal, setShowModal] = useState(false)
   const [podName, setPodName] = useState(`My ${tpl.Name}`)
+  const [isDeploying, setIsDeploying] = useState(false)
   
   const defaultVersion = tpl.DockerImage.includes(':') ? tpl.DockerImage.split(':')[1] : 'latest'
   const baseImage = tpl.DockerImage.split(':')[0]
@@ -35,6 +39,56 @@ export default function TemplateCard({ tpl }: { tpl: any }) {
         })
     }
   }, [showModal, baseImage, defaultVersion, availableTags.length])
+
+  const handleDeploy = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsDeploying(true)
+    
+    try {
+      const supabase = createClient()
+      const { data } = await supabase.auth.getSession()
+      
+      if (!data.session) {
+        alert('No autenticado')
+        return
+      }
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/pods`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${data.session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          template_slug: tpl.Slug,
+          name: podName,
+          version: version || undefined
+        })
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        console.error("Backend error:", errText)
+        alert('Error al desplegar: ' + errText)
+        return
+      }
+
+      const pod = await res.json()
+      console.log("Pod created:", pod)
+      
+      // Redirigir a la página del pod
+      if (pod.ID) {
+        router.push(`/pods/${pod.ID}`)
+      } else {
+        alert('Error: No se obtuvo ID del pod')
+      }
+    } catch (error) {
+      console.error("Failed to deploy pod:", error)
+      alert('Error de red')
+    } finally {
+      setIsDeploying(false)
+    }
+  }
 
   return (
     <>
@@ -67,23 +121,21 @@ export default function TemplateCard({ tpl }: { tpl: any }) {
           <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative">
             <div className="p-6 border-b border-gray-800 flex justify-between items-center">
               <h3 className="text-xl font-bold">Desplegar {tpl.Name}</h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white transition-colors">
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white transition-colors" disabled={isDeploying}>
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <form action={`/templates/deploy`} method="POST" className="p-6 space-y-4">
-              <input type="hidden" name="templateSlug" value={tpl.Slug} />
-              
+            <form onSubmit={handleDeploy} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">Nombre del Pod</label>
                 <input 
                   type="text" 
-                  name="customName" 
                   value={podName}
                   onChange={e => setPodName(e.target.value)}
                   className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                  disabled={isDeploying}
                 />
               </div>
 
@@ -94,11 +146,10 @@ export default function TemplateCard({ tpl }: { tpl: any }) {
                 </label>
                 {availableTags.length > 0 ? (
                   <select 
-                    name="version" 
                     value={version}
                     onChange={e => setVersion(e.target.value)}
                     className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
-                    disabled={loadingTags}
+                    disabled={loadingTags || isDeploying}
                   >
                     {availableTags.map((tag) => (
                       <option key={tag} value={tag}>{tag}</option>
@@ -107,12 +158,11 @@ export default function TemplateCard({ tpl }: { tpl: any }) {
                 ) : (
                   <input 
                     type="text" 
-                    name="version" 
                     value={version}
                     onChange={e => setVersion(e.target.value)}
                     className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g. latest, 20, 22.04"
-                    disabled={loadingTags}
+                    disabled={loadingTags || isDeploying}
                   />
                 )}
               </div>
@@ -121,15 +171,24 @@ export default function TemplateCard({ tpl }: { tpl: any }) {
                 <button 
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-2 px-4 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
+                  className="flex-1 py-2 px-4 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                  disabled={isDeploying}
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit" 
-                  className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                  disabled={isDeploying}
+                  className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  Desplegar
+                  {isDeploying ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Desplegando...
+                    </>
+                  ) : (
+                    'Desplegar'
+                  )}
                 </button>
               </div>
             </form>

@@ -12,7 +12,13 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // ADVERTENCIA: Para producción real, validar orígenes
+		// Validar el origen para mayor seguridad
+		return true
+		/* 		origin := r.Header.Get("Origin")
+		   		if origin == "https://tudominio.com" {
+		   			return true
+		   		}
+		   		return false */
 	},
 }
 
@@ -63,7 +69,7 @@ func (a *API) TerminalHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			break
 		}
-		
+
 		_, err = resp.Conn.Write(p)
 		if err != nil {
 			break

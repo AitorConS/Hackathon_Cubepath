@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -31,7 +31,7 @@ func (s *Service) PullImage(ctx context.Context, imageName string) error {
 		return err
 	}
 	defer reader.Close()
-	
+
 	// Just consume to wait for pull
 	// In a complete app we would stream/log this output
 	buf := make([]byte, 1024)
@@ -53,14 +53,14 @@ func (s *Service) CreateContainer(ctx context.Context, imageName, containerName,
 	}
 
 	resp, err := s.cli.ContainerCreate(ctx, &container.Config{
-		Image: imageName,
-		Cmd:   cmd,
-		Tty:   true, // Needed for interactive terminals
+		Image:     imageName,
+		Cmd:       cmd,
+		Tty:       true, // Needed for interactive terminals
 		OpenStdin: true,
 	}, &container.HostConfig{
 		// Basic security/resource limits could be applied here
 		// E.g., Memory: 128*1024*1024
-		AutoRemove: false, 
+		AutoRemove: false,
 	}, nil, nil, containerName)
 
 	if err != nil {

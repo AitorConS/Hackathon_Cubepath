@@ -33,6 +33,8 @@ export default function TerminalComponent({ podId }: { podId: string }) {
         return
       }
 
+      if (typeof window === 'undefined') return
+      
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/^http/, 'ws')
       const wsUrl = `${apiUrl}/pods/${podId}/terminal?token=${data.session.access_token}`

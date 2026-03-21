@@ -1,35 +1,72 @@
-import { createClient } from '@/utils/supabase/server'
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus, Terminal, Trash2, Power } from 'lucide-react'
+import { createClient } from '@/utils/supabase/client'
+import { Plus, Terminal, Trash2, Power, Loader2 } from 'lucide-react'
 
-export const dynamic = 'force-dynamic'
-
-async function getPods() {
-  const cookieStore = await import('next/headers').then(m => m.cookies())
-  // The backend API needs the Supabase token
-  const supabase = await createClient()
-  const { data } = await supabase.auth.getSession()
-  
-  if (!data.session) return []
-
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/pods`, {
-      headers: {
-        'Authorization': `Bearer ${data.session.access_token}`
-      },
-      cache: 'no-store'
-    })
-    
-    if (!res.ok) return []
-    return res.json()
-  } catch (error) {
-    console.error("Failed to fetch pods:", error)
-    return []
-  }
+interface Pod {
+  ID: string
+  Name: string
+  Status: string
+  DockerContainerID: string
 }
 
-export default async function DashboardPage() {
-  const pods = await getPods()
+export default function DashboardPage() {
+  const [pods, setPods] = useState<Pod[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+  const getToken = async () => {
+    const supabase = createClient()
+    const { data } = await supabase.auth.getSession()
+    return data.session?.access_token || ''
+  }
+
+  const fetchPods = useCallback(async () => {
+    try {
+      const token = await getToken()
+      const res = await fetch(`${apiUrl}/pods`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setPods(data || [])
+      }
+    } catch (error) {
+      console.error("Failed to fetch pods:", error)
+    }
+  }, [apiUrl])
+
+  useEffect(() => {
+    fetchPods().then(() => setLoading(false))
+  }, [fetchPods])
+
+  // Poll para actualizar la lista de pods cada 2 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchPods()
+    }, 2000)
+    
+    return () => clearInterval(interval)
+  }, [fetchPods])
+
+  const getStatusDisplay = (status: string) => {
+    if (status === 'creating') {
+      return {
+        text: 'Desplegando',
+        color: 'bg-blue-500/10 text-blue-500',
+        icon: true
+      }
+    }
+    return {
+      text: status,
+      color: status === 'running' ? 'bg-green-500/10 text-green-500' : 'bg-gray-500/10 text-gray-500',
+      icon: false
+    }
+  }
 
   return (
     <div className="flex-1 overflow-y-auto p-8">
@@ -42,35 +79,43 @@ export default async function DashboardPage() {
           href="/templates" 
           className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors"
         >
-          <Plus className="w-5 h-5 " />
+          <Plus className="w-5 h-5" />
           <span>Nuevo Pod</span>
         </Link>
       </div>
 
-      {pods && pods.length > 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-20 text-gray-500">
+          <Loader2 className="w-6 h-6 animate-spin mr-2" />
+          Cargando pods...
+        </div>
+      ) : pods && pods.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {pods.map((pod: any) => (
-            <div key={pod.ID} className="bg-gray-900 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-colors">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-semibold truncate" title={pod.Name}>{pod.Name}</h3>
-                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${pod.Status === 'running' ? 'bg-green-500/10 text-green-500' : 'bg-gray-500/10 text-gray-500'}`}>
-                  {pod.Status}
-                </span>
+          {pods.map((pod: Pod) => {
+            const statusDisplay = getStatusDisplay(pod.Status)
+            return (
+              <div key={pod.ID} className="bg-gray-900 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-colors">
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-xl font-semibold truncate" title={pod.Name}>{pod.Name}</h3>
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full flex items-center gap-1 ${statusDisplay.color}`}>
+                    {statusDisplay.icon && <Loader2 className="w-3 h-3 animate-spin" />}
+                    <span>{statusDisplay.text}</span>
+                  </span>
+                </div>
+                <p className="text-sm text-gray-400 mb-6 truncate">ID: {pod.DockerContainerID?.slice(0, 12)}</p>
+                
+                <div className="flex justify-between items-center pt-4 border-t border-gray-800">
+                  <Link href={`/pods/${pod.ID}`} className="flex items-center text-sm font-medium text-blue-400 hover:text-blue-300">
+                    <Terminal className="w-4 h-4 mr-2" />
+                    Terminal
+                  </Link>
+                  <Link href={`/pods/${pod.ID}`} className="text-sm text-gray-400 hover:text-white">
+                    Gestionar
+                  </Link>
+                </div>
               </div>
-              <p className="text-sm text-gray-400 mb-6 truncate">ID: {pod.DockerContainerID?.slice(0, 12)}</p>
-              
-              <div className="flex justify-between items-center pt-4 border-t border-gray-800">
-                <Link href={`/pods/${pod.ID}`} className="flex items-center text-sm font-medium text-blue-400 hover:text-blue-300">
-                  <Terminal className="w-4 h-4 mr-2" />
-                  Terminal
-                </Link>
-                {/* Se necesita componentes de cliente para la lógica de Detener/Eliminar */}
-                <Link href={`/pods/${pod.ID}`} className="text-sm text-gray-400 hover:text-white">
-                  Gestionar
-                </Link>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <div className="text-center py-24 bg-gray-900/50 rounded-2xl border border-gray-800 border-dashed">

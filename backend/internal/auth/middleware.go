@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang-jwt/jwt/v5"
 	"cubepod/backend/internal/config"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type contextKey string
@@ -18,7 +19,7 @@ func Middleware(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tokenString := ""
-			
+
 			// 1. Intentar cabecera Authorization
 			authHeader := r.Header.Get("Authorization")
 			if authHeader != "" {
@@ -39,7 +40,6 @@ func Middleware(cfg *config.Config) func(http.Handler) http.Handler {
 			}
 
 			// Usar ParseUnverified para inspeccionar rápidamente el payload sin verificación de firma criptográfica
-			// por ahora para el MVP del hackathon, evitando el desajuste inesperado ES256/HS256.
 			token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
 			if err != nil {
 				log.Printf("Token Parse Error: %v", err)

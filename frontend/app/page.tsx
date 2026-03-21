@@ -161,10 +161,10 @@ function ShipScene() {
         const bx = ((w * 0.1 + i * w * 0.18 + t * 12 * (0.5 + i * 0.1)) % (w * 1.2)) - w * 0.1
         const by = h * 0.15 + Math.sin(t * 0.8 + i) * h * 0.04 + i * h * 0.025
         const wing = Math.sin(t * 3 + i) * 4
-        ctx.beginPath()
-        ctx.moveTo(bx - 6, by + wing)
-        ctx.quadraticCurveTo(bx, by, bx + 6, by + wing)
-        ctx.stroke()
+        ctx!.beginPath()
+        ctx!.moveTo(bx - 6, by + wing)
+        ctx!.quadraticCurveTo(bx, by, bx + 6, by + wing)
+        ctx!.stroke()
       }
     }
 
@@ -176,13 +176,13 @@ function ShipScene() {
       ctx!.clearRect(0, 0, w, h)
 
       // Estrellas / puntos en el fondo
-      ctx.fillStyle = 'rgba(148,163,184,0.08)'
+      ctx!.fillStyle = 'rgba(148,163,184,0.08)'
       for (let i = 0; i < 40; i++) {
         const sx = (i * 173 % w + tick * (i % 3 === 0 ? 0.2 : 0)) % w
         const sy = (i * 97) % (h * 0.55)
-        ctx.beginPath()
-        ctx.arc(sx, sy, 0.8, 0, Math.PI * 2)
-        ctx.fill()
+        ctx!.beginPath()
+        ctx!.arc(sx, sy, 0.8, 0, Math.PI * 2)
+        ctx!.fill()
       }
 
       drawBirds(tick)

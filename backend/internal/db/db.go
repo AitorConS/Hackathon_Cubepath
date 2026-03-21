@@ -15,36 +15,36 @@ type Database struct {
 }
 
 type Template struct {
-	ID             uuid.UUID
-	Slug           string
-	Name           string
-	Description    string
-	DockerImage    string
-	Category       string
-	DefaultCommand string
-	ExposedPorts   string // JSON
-	CreatedAt      time.Time
+	ID             uuid.UUID `json:"ID"`
+	Slug           string    `json:"Slug"`
+	Name           string    `json:"Name"`
+	Description    string    `json:"Description"`
+	DockerImage    string    `json:"DockerImage"`
+	Category       string    `json:"Category"`
+	DefaultCommand string    `json:"DefaultCommand"`
+	ExposedPorts   string    `json:"ExposedPorts"` // JSON
+	CreatedAt      time.Time `json:"CreatedAt"`
 }
 
 type Pod struct {
-	ID                uuid.UUID
-	UserID            uuid.UUID
-	TemplateID        uuid.UUID
-	Name              string
-	DockerContainerID string
-	Status            string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                uuid.UUID `json:"ID"`
+	UserID            uuid.UUID `json:"UserID"`
+	TemplateID        uuid.UUID `json:"TemplateID"`
+	Name              string    `json:"Name"`
+	DockerContainerID string    `json:"DockerContainerID"`
+	Status            string    `json:"Status"`
+	CreatedAt         time.Time `json:"CreatedAt"`
+	UpdatedAt         time.Time `json:"UpdatedAt"`
 }
 
 type Tunnel struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	PodID     uuid.UUID
-	Port      int
-	PublicURL string
-	Status    string // starting, active, stopped
-	CreatedAt time.Time
+	ID        uuid.UUID `json:"ID"`
+	UserID    uuid.UUID `json:"UserID"`
+	PodID     uuid.UUID `json:"PodID"`
+	Port      int       `json:"Port"`
+	PublicURL string    `json:"PublicURL"`
+	Status    string    `json:"Status"` // starting, active, stopped
+	CreatedAt time.Time `json:"CreatedAt"`
 }
 
 func Connect(connStr string) (*Database, error) {
@@ -139,6 +139,12 @@ func (d *Database) InsertPod(p *Pod) error {
 func (d *Database) UpdatePodStatus(podID string, status string) error {
 	query := `UPDATE public.pods SET status = $1, updated_at = now() WHERE id = $2`
 	_, err := d.pool.Exec(context.Background(), query, status, podID)
+	return err
+}
+
+func (d *Database) UpdatePodContainerID(podID string, containerID string) error {
+	query := `UPDATE public.pods SET docker_container_id = $1, updated_at = now() WHERE id = $2`
+	_, err := d.pool.Exec(context.Background(), query, containerID, podID)
 	return err
 }
 

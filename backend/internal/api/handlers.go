@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -38,7 +39,7 @@ func RegisterRoutes(r chi.Router, api *API, authMiddleware func(http.Handler) ht
 		r.Get("/pods/{id}", api.GetPod)
 		r.Post("/pods/{id}/stop", api.StopPod)
 		r.Delete("/pods/{id}", api.DeletePod)
-		
+
 		// Terminal WebSocket
 		r.HandleFunc("/pods/{id}/terminal", api.TerminalHandler)
 
@@ -64,7 +65,7 @@ func (a *API) GetTemplates(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("[]"))
 		return
 	}
-	
+
 	templates, err := a.DB.GetTemplates()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -95,7 +96,7 @@ func (a *API) GetPods(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) CreatePod(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
-	
+
 	type reqBody struct {
 		TemplateSlug string `json:"template_slug"`
 		Name         string `json:"name"`
@@ -121,35 +122,15 @@ func (a *API) CreatePod(w http.ResponseWriter, r *http.Request) {
 		dockerImage = parts[0] + ":" + req.Version
 	}
 
-	// 1. Descargar imagen (Lanzar y olvidar o esperar)
-	err = a.Docker.PullImage(r.Context(), dockerImage)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// 2. Crear e Iniciar Contenedor Docker
-	containerName := "pod-" + uuid.New().String()[:8]
-	containerID, err := a.Docker.CreateContainer(r.Context(), dockerImage, containerName, tpl.DefaultCommand)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	err = a.Docker.StartContainer(r.Context(), containerID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// 3. Guardar en la DB
+	// 1. Guardar pod en la DB con status "creating"
 	userUUID, _ := uuid.Parse(userID)
+	containerName := "pod-" + uuid.New().String()[:8]
 	pod := &db.Pod{
 		UserID:            userUUID,
 		TemplateID:        tpl.ID,
 		Name:              req.Name,
-		DockerContainerID: containerID,
-		Status:            "running",
+		DockerContainerID: "", // Se llenará cuando se cree el contenedor
+		Status:            "creating",
 	}
 
 	if err := a.DB.InsertPod(pod); err != nil {
@@ -157,6 +138,39 @@ func (a *API) CreatePod(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 2. Iniciar deployment asincronista en un goroutine
+	go func() {
+		ctx := context.Background()
+
+		// Descargar imagen
+		err := a.Docker.PullImage(ctx, dockerImage)
+		if err != nil {
+			fmt.Printf("Error pulling image for pod %s: %v\n", pod.ID, err)
+			a.DB.UpdatePodStatus(pod.ID.String(), "error")
+			return
+		}
+
+		// Crear e Iniciar Contenedor Docker
+		containerID, err := a.Docker.CreateContainer(ctx, dockerImage, containerName, tpl.DefaultCommand)
+		if err != nil {
+			fmt.Printf("Error creating container for pod %s: %v\n", pod.ID, err)
+			a.DB.UpdatePodStatus(pod.ID.String(), "error")
+			return
+		}
+
+		err = a.Docker.StartContainer(ctx, containerID)
+		if err != nil {
+			fmt.Printf("Error starting container for pod %s: %v\n", pod.ID, err)
+			a.DB.UpdatePodStatus(pod.ID.String(), "error")
+			return
+		}
+
+		// Actualizar el pod con el ID del contenedor y status "running"
+		a.DB.UpdatePodContainerID(pod.ID.String(), containerID)
+		a.DB.UpdatePodStatus(pod.ID.String(), "running")
+	}()
+
+	// 3. Devolver el pod con status "creating"
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(pod)
 }
@@ -259,7 +273,7 @@ func (a *API) ReadFile(w http.ResponseWriter, r *http.Request) {
 func (a *API) WriteFile(w http.ResponseWriter, r *http.Request) {
 	podID := chi.URLParam(r, "id")
 	userID := auth.GetUserID(r.Context())
-	
+
 	type reqBody struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
@@ -276,8 +290,6 @@ func (a *API) WriteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Implementación simple de sh -c echo para el MVP (Advertencia: el contenido sin escapar podría ser un problema, pero está bien para el MVP)
-	// Mejor enfoque para archivos pequeños: escribir localmente y docker cp, o usar base64
 	cmdStr := fmt.Sprintf("echo '%s' | base64 -d > %s", base64.StdEncoding.EncodeToString([]byte(req.Content)), req.Path)
 	_, err = a.Docker.ExecCommand(r.Context(), pod.DockerContainerID, []string{"sh", "-c", cmdStr})
 	if err != nil {
