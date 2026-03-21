@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
 import { ArrowLeft, Power, Trash2, Loader2 } from 'lucide-react'
@@ -17,6 +17,7 @@ interface Pod {
 
 export default function PodDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const id = params?.id as string
   const [pod, setPod] = useState<Pod | null>(null)
   const [loading, setLoading] = useState(true)
@@ -139,8 +140,8 @@ export default function PodDetailPage() {
           message: 'Error interno en el servidor'
         })
       } else {
-        // Redirigir al dashboard después de borrar
-        window.location.href = '/dashboard'
+        // Redirigir al dashboard después de borrar con transición
+        router.push('/dashboard')
       }
     } catch (error) {
       console.error("Failed to delete pod:", error)

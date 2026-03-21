@@ -370,12 +370,10 @@ export default function LandingPage() {
       <footer className="border-t border-gray-900 bg-gray-950 px-6 py-12">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 sm:flex-row">
           <span className="text-sm text-gray-500">
-            © {new Date().getFullYear()} CubePod. Casi todos los derechos reservados.
+            © {new Date().getFullYear()} CubePod. Ningún derechos reservado.
           </span>
           <div className="flex gap-8 text-sm text-gray-500">
-            <a href="#" className="hover:text-blue-400 transition-colors">Twitter</a>
             <a href="#" className="hover:text-blue-400 transition-colors">GitHub</a>
-            <a href="#" className="hover:text-blue-400 transition-colors">Documentación</a>
           </div>
         </div>
       </footer>
