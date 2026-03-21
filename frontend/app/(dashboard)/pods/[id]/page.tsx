@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import Link from 'next/link'
-import { ArrowLeft, Play, Square, Trash2, Loader2 } from 'lucide-react'
+import { ArrowLeft, Power, Trash2, Loader2 } from 'lucide-react'
+import ErrorAlert from '@/components/ErrorAlert'
 import TerminalComponent from '@/components/Terminal'
 import FileExplorer from '@/components/FileExplorer'
 
@@ -20,6 +21,8 @@ export default function PodDetailPage() {
   const [pod, setPod] = useState<Pod | null>(null)
   const [loading, setLoading] = useState(true)
   const [polling, setPolling] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [error, setError] = useState<{ title: string; message: string } | null>(null)
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL
 
@@ -65,6 +68,91 @@ export default function PodDetailPage() {
     return () => clearInterval(interval)
   }, [polling, fetchPod])
 
+  const handleStartPod = async () => {
+    setActionLoading(true)
+    setError(null)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${apiUrl}/pods/${id}/start`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!res.ok) {
+        setError({
+          title: 'No se pudo encender el pod',
+          message: 'Error interno en el servidor'
+        })
+      } else {
+        await fetchPod()
+      }
+    } catch (error) {
+      console.error("Failed to start pod:", error)
+      setError({
+        title: 'Error de conexión',
+        message: 'No se pudo conectar al servidor'
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleStopPod = async () => {
+    setActionLoading(true)
+    setError(null)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${apiUrl}/pods/${id}/stop`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!res.ok) {
+        setError({
+          title: 'No se pudo parar el pod',
+          message: 'Error interno en el servidor'
+        })
+      } else {
+        await fetchPod()
+      }
+    } catch (error) {
+      console.error("Failed to stop pod:", error)
+      setError({
+        title: 'Error de conexión',
+        message: 'No se pudo conectar al servidor'
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleDeletePod = async () => {
+    setActionLoading(true)
+    setError(null)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${apiUrl}/pods/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!res.ok) {
+        setError({
+          title: 'No se pudo borrar el pod',
+          message: 'Error interno en el servidor'
+        })
+      } else {
+        // Redirigir al dashboard después de borrar
+        window.location.href = '/dashboard'
+      }
+    } catch (error) {
+      console.error("Failed to delete pod:", error)
+      setError({
+        title: 'Error de conexión',
+        message: 'No se pudo conectar al servidor'
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-950">
@@ -91,6 +179,15 @@ export default function PodDetailPage() {
 
   return (
     <div className="flex flex-col h-full bg-gray-950">
+      {error && (
+        <ErrorAlert 
+          title={error.title}
+          message={error.message}
+          onClose={() => setError(null)}
+          type="error"
+        />
+      )}
+      
       <header className="px-6 py-4 border-b border-gray-800 bg-gray-900 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <Link href="/dashboard" className="p-2 hover:bg-gray-800 rounded-full transition-colors text-gray-400 hover:text-white">
@@ -109,20 +206,63 @@ export default function PodDetailPage() {
         </div>
 
         <div className="flex items-center space-x-3">
-          {isRunning && (
-            <form action={`/pods/${pod.ID}/stop`} method="POST">
-              <button className="flex items-center space-x-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
-                <Square className="w-4 h-4 text-yellow-500" />
-                <span>Detener</span>
-              </button>
-            </form>
-          )}
-          <form action={`/pods/${pod.ID}/delete`} method="POST">
-            <button className="flex items-center space-x-2 px-4 py-2 bg-red-900/20 hover:bg-red-900/40 text-red-500 rounded-lg text-sm font-medium transition-colors border border-red-900/50">
-              <Trash2 className="w-4 h-4" />
-              <span>Eliminar</span>
+          {!isRunning && !isDeploying && (
+            <button 
+              onClick={handleStartPod}
+              disabled={actionLoading}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Encendiendo...</span>
+                </>
+              ) : (
+                <>
+                  <Power className="w-4 h-4" />
+                  <span>Encender</span>
+                </>
+              )}
             </button>
-          </form>
+          )}
+          
+          {isRunning && (
+            <button 
+              onClick={handleStopPod}
+              disabled={actionLoading}
+              className="flex items-center space-x-2 px-4 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Parando...</span>
+                </>
+              ) : (
+                <>
+                  <Power className="w-4 h-4" />
+                  <span>Parar</span>
+                </>
+              )}
+            </button>
+          )}
+          
+          <button 
+            onClick={handleDeletePod}
+            disabled={actionLoading}
+            className="flex items-center space-x-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {actionLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Borrando...</span>
+              </>
+            ) : (
+              <>
+                <Trash2 className="w-4 h-4" />
+                <span>Borrar</span>
+              </>
+            )}
+          </button>
         </div>
       </header>
 

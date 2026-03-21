@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { Server, ArrowRight, X, Loader2 } from 'lucide-react'
+import ErrorAlert from './ErrorAlert'
 
 export default function TemplateCard({ tpl }: { tpl: any }) {
   const router = useRouter()
   const [showModal, setShowModal] = useState(false)
   const [podName, setPodName] = useState(`My ${tpl.Name}`)
   const [isDeploying, setIsDeploying] = useState(false)
+  const [error, setError] = useState<{ title: string; message: string } | null>(null)
   
   const defaultVersion = tpl.DockerImage.includes(':') ? tpl.DockerImage.split(':')[1] : 'latest'
   const baseImage = tpl.DockerImage.split(':')[0]
@@ -43,13 +45,18 @@ export default function TemplateCard({ tpl }: { tpl: any }) {
   const handleDeploy = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsDeploying(true)
+    setError(null)
     
     try {
       const supabase = createClient()
       const { data } = await supabase.auth.getSession()
       
       if (!data.session) {
-        alert('No autenticado')
+        setError({
+          title: 'Error de autenticación',
+          message: 'Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.'
+        })
+        setIsDeploying(false)
         return
       }
 
@@ -67,24 +74,39 @@ export default function TemplateCard({ tpl }: { tpl: any }) {
       })
 
       if (!res.ok) {
-        const errText = await res.text()
-        console.error("Backend error:", errText)
-        alert('Error al desplegar: ' + errText)
+        let errorMessage = 'Error interno en el servidor'
+        
+        if (res.status === 400) {
+          // Validación: máximo de pods
+          errorMessage = 'Número máximo de pods alcanzado. Elimina uno para crear otro.'
+        } else if (res.status === 404) {
+          errorMessage = 'Plantilla no encontrada'
+        } else if (res.status === 500) {
+          errorMessage = 'Error interno en el servidor'
+        }
+
+        setError({
+          title: 'No se pudo desplegar el pod',
+          message: errorMessage
+        })
+        setIsDeploying(false)
         return
       }
 
       const pod = await res.json()
       console.log("Pod created:", pod)
+      setShowModal(false)
       
       // Redirigir a la página del pod
       if (pod.ID) {
         router.push(`/pods/${pod.ID}`)
-      } else {
-        alert('Error: No se obtuvo ID del pod')
       }
     } catch (error) {
       console.error("Failed to deploy pod:", error)
-      alert('Error de red')
+      setError({
+        title: 'Error de conexión',
+        message: 'No se pudo conectar al servidor. Verifica tu conexión a internet.'
+      })
     } finally {
       setIsDeploying(false)
     }
@@ -92,6 +114,15 @@ export default function TemplateCard({ tpl }: { tpl: any }) {
 
   return (
     <>
+      {error && (
+        <ErrorAlert 
+          title={error.title}
+          message={error.message}
+          onClose={() => setError(null)}
+          type="error"
+        />
+      )}
+      
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 hover:border-gray-700 transition-colors flex flex-col">
         <div className="flex items-center space-x-4 mb-4">
           <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center">

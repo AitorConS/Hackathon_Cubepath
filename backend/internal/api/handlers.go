@@ -37,6 +37,7 @@ func RegisterRoutes(r chi.Router, api *API, authMiddleware func(http.Handler) ht
 		r.Get("/pods", api.GetPods)
 		r.Post("/pods", api.CreatePod)
 		r.Get("/pods/{id}", api.GetPod)
+		r.Post("/pods/{id}/start", api.StartPod)
 		r.Post("/pods/{id}/stop", api.StopPod)
 		r.Delete("/pods/{id}", api.DeletePod)
 
@@ -106,6 +107,19 @@ func (a *API) CreatePod(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	// Validar límite máximo de 3 contenedores por usuario
+	if a.DB != nil {
+		pods, err := a.DB.GetPodsByUser(userID)
+		if err != nil {
+			http.Error(w, "Error al validar límite de pods", http.StatusInternalServerError)
+			return
+		}
+		if len(pods) >= 3 {
+			http.Error(w, "Solo puedes tener máximo 3 contenedores. Elimina uno para crear otro.", http.StatusBadRequest)
+			return
+		}
 	}
 
 	tpl, err := a.DB.GetTemplateBySlug(req.TemplateSlug)
@@ -187,6 +201,26 @@ func (a *API) GetPod(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(pod)
+}
+
+func (a *API) StartPod(w http.ResponseWriter, r *http.Request) {
+	podID := chi.URLParam(r, "id")
+	userID := auth.GetUserID(r.Context())
+
+	pod, err := a.DB.GetPodByID(podID, userID)
+	if err != nil || pod.DockerContainerID == "" {
+		http.Error(w, "Pod no encontrado", http.StatusNotFound)
+		return
+	}
+
+	err = a.Docker.StartContainer(r.Context(), pod.DockerContainerID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	a.DB.UpdatePodStatus(pod.ID.String(), "running")
+	w.Write([]byte(`{"status":"success"}`))
 }
 
 func (a *API) StopPod(w http.ResponseWriter, r *http.Request) {
