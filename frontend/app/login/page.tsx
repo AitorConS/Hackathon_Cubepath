@@ -1,12 +1,22 @@
 import { login, signup } from './actions'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 
 export default async function LoginPage(props: { searchParams?: Promise<{ error?: string }> }) {
   const searchParams = await props.searchParams
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-950">
-      <div className="w-full max-w-md p-8 bg-gray-900 rounded-xl shadow-2xl border border-gray-800">
-        <div className="text-center mb-6">
+    <div className="flex items-center justify-center min-h-screen bg-gray-950 px-4">
+      <div className="w-full max-w-md p-8 bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 relative">
+        <Link 
+          href="/" 
+          className="absolute left-6 top-6 p-2 rounded-full hover:bg-gray-800 transition-colors text-gray-400 hover:text-white group"
+          title="Volver al inicio"
+        >
+          <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-0.5" />
+        </Link>
+        
+        <div className="text-center mb-8 mt-4">
           <h1 className="text-3xl font-bold text-white mb-2">CubePod</h1>
           <p className="text-gray-400">Inicia sesión para gestionar tus contenedores</p>
         </div>

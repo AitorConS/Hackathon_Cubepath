@@ -277,8 +277,8 @@ export default function LandingPage() {
         <h1 className="max-w-3xl text-5xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl">
           Despliega contenedores
           <br />
-          <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
-            a toda velocidad
+          <span className="bg-linear-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
+            en 2 clicks
           </span>
         </h1>
         <p className="mt-6 max-w-xl text-lg text-gray-400">
@@ -354,7 +354,7 @@ export default function LandingPage() {
 
       {/* ── Banner de CTA ── */}
       <section className="border-t border-gray-800/80 bg-gray-950 px-6 py-24 text-center">
-        <h2 className="text-3xl font-bold tracking-tight text-white mb-6">¿Listo para enviar?</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-white mb-6">¿Listo para empezar?</h2>
         <p className="mx-auto max-w-lg text-gray-400 mb-10">
           Únete a CubePod hoy y experimenta la forma más rápida de gestionar tus contenedores Docker.
         </p>
