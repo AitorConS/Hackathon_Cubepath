@@ -98,7 +98,6 @@ func (a *API) CreateTunnel(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) DeleteTunnel(w http.ResponseWriter, r *http.Request) {
 	tunnelID := chi.URLParam(r, "id")
-	userID := auth.GetUserID(r.Context())
 
 	if err := a.Tunnel.StopTunnel(tunnelID); err != nil {
 		log.Printf("Advertencia al detener el túnel: %v", err)

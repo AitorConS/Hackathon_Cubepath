@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"cubepod/backend/internal/auth"
+
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
@@ -51,7 +52,7 @@ func (a *API) LogsHandler(w http.ResponseWriter, r *http.Request) {
 
 	writer := &wsWriter{conn: conn}
 
-	if _, err := stdcopy.StdCopy(writer, writer, logReader); err != {
+	if _, err := stdcopy.StdCopy(writer, writer, logReader); err != nil {
 		log.Printf("Log stream finalizado para pod %s: %v", podID, err)
 	}
 }

@@ -66,13 +66,14 @@ func (s *Service) CreateContainer(ctx context.Context, imageName, containerName,
 	resp, err := s.cli.ContainerCreate(ctx, &container.Config{
 		Image:     imageName,
 		Cmd:       cmd,
-			Tty:       true,
-			OpenStdin: true,
-		}, &container.HostConfig{
-			AutoRemove: false,
-			Resources: container.Resources{
-				Memory:   512 * 1024 * 1024,
-				NanoCPUs: 1_000_000_000,
+		Tty:       true,
+		OpenStdin: true,
+	}, &container.HostConfig{
+		AutoRemove: false,
+		Resources: container.Resources{
+			Memory:   512 * 1024 * 1024,
+			NanoCPUs: 1_000_000_000,
+		},
 	}, nil, nil, containerName)
 
 	if err != nil {
