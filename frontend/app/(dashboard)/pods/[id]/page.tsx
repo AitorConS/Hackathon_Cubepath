@@ -8,6 +8,7 @@ import { ArrowLeft, Power, Trash2, Loader2 } from 'lucide-react'
 import ErrorAlert from '@/components/ErrorAlert'
 import TerminalComponent from '@/components/Terminal'
 import FileExplorer from '@/components/FileExplorer'
+import PodStats from '@/components/PodStats'
 
 interface Pod {
   ID: string
@@ -287,12 +288,13 @@ export default function PodDetailPage() {
             </div>
           </div>
 
-          {/* Sidebar (File Explorer) */}
-          <div className="w-80 flex flex-col bg-gray-900">
+          {/* Sidebar */}
+          <div className="w-80 flex flex-col bg-gray-900 overflow-y-auto">
+            <PodStats podId={pod.ID} />
             <div className="p-4 border-b border-gray-800 text-sm font-medium">
               Archivos
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1">
               <FileExplorer podId={pod.ID} />
             </div>
           </div>

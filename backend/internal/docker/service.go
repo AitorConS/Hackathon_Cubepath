@@ -2,14 +2,28 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 )
+
+// ContainerStats holds real-time resource usage for a container
+type ContainerStats struct {
+	CPUPercent float64 `json:"cpu_percent"`
+	MemUsage   uint64  `json:"mem_usage"`
+	MemLimit   uint64  `json:"mem_limit"`
+	MemPercent float64 `json:"mem_percent"`
+	NetworkRx  uint64  `json:"network_rx"`
+	NetworkTx  uint64  `json:"network_tx"`
+}
 
 type Service struct {
 	cli *client.Client
@@ -58,9 +72,11 @@ func (s *Service) CreateContainer(ctx context.Context, imageName, containerName,
 		Tty:       true, // Needed for interactive terminals
 		OpenStdin: true,
 	}, &container.HostConfig{
-		// Basic security/resource limits could be applied here
-		// E.g., Memory: 128*1024*1024
 		AutoRemove: false,
+		Resources: container.Resources{
+			Memory:   512 * 1024 * 1024, // 512 MB
+			NanoCPUs: 1_000_000_000,     // 1 vCPU
+		},
 	}, nil, nil, containerName)
 
 	if err != nil {
@@ -126,4 +142,108 @@ func (s *Service) ExecInteractive(ctx context.Context, containerID string, cmd [
 
 func (s *Service) GetClient() *client.Client {
 	return s.cli
+}
+
+// StreamLogs returns a reader that streams the container's stdout+stderr logs.
+// The caller must close the returned ReadCloser when done.
+func (s *Service) StreamLogs(ctx context.Context, containerID string) (io.ReadCloser, error) {
+	return s.cli.ContainerLogs(ctx, containerID, types.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     true,
+		Timestamps: false,
+		Tail:       "200",
+	})
+}
+
+// GetStats returns a one-shot snapshot of CPU, memory, and network usage
+func (s *Service) GetStats(ctx context.Context, containerID string) (*ContainerStats, error) {
+	resp, err := s.cli.ContainerStats(ctx, containerID, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get container stats: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var statsJSON types.StatsJSON
+	if err := json.NewDecoder(resp.Body).Decode(&statsJSON); err != nil {
+		return nil, fmt.Errorf("failed to decode stats: %w", err)
+	}
+
+	// CPU percent: delta between current and previous sample
+	cpuDelta := float64(statsJSON.CPUStats.CPUUsage.TotalUsage - statsJSON.PreCPUStats.CPUUsage.TotalUsage)
+	systemDelta := float64(statsJSON.CPUStats.SystemUsage - statsJSON.PreCPUStats.SystemUsage)
+	numCPUs := float64(statsJSON.CPUStats.OnlineCPUs)
+	if numCPUs == 0 {
+		numCPUs = float64(len(statsJSON.CPUStats.CPUUsage.PercpuUsage))
+	}
+	if numCPUs == 0 {
+		numCPUs = 1
+	}
+	var cpuPercent float64
+	if systemDelta > 0 && cpuDelta > 0 {
+		cpuPercent = (cpuDelta / systemDelta) * numCPUs * 100.0
+	}
+
+	// Memory
+	memUsage := statsJSON.MemoryStats.Usage
+	memLimit := statsJSON.MemoryStats.Limit
+	var memPercent float64
+	if memLimit > 0 {
+		memPercent = float64(memUsage) / float64(memLimit) * 100.0
+	}
+
+	// Network I/O (sum across all interfaces)
+	var rxBytes, txBytes uint64
+	for _, netStats := range statsJSON.Networks {
+		rxBytes += netStats.RxBytes
+		txBytes += netStats.TxBytes
+	}
+
+	return &ContainerStats{
+		CPUPercent: cpuPercent,
+		MemUsage:   memUsage,
+		MemLimit:   memLimit,
+		MemPercent: memPercent,
+		NetworkRx:  rxBytes,
+		NetworkTx:  txBytes,
+	}, nil
+}
+
+// GetListeningPorts returns the list of TCP ports the container is actively listening on
+func (s *Service) GetListeningPorts(ctx context.Context, containerID string) ([]int, error) {
+	// Use ss to get listening ports; extract the port number after the last colon
+	out, err := s.ExecCommand(ctx, containerID, []string{
+		"sh", "-c", `ss -tlnp 2>/dev/null | awk 'NR>1{n=split($4,a,":");print a[n]}'`,
+	})
+	if err != nil {
+		return []int{}, nil // container may not have ss — return empty gracefully
+	}
+
+	seen := map[int]bool{}
+	var ports []int
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if !isDigitsOnly(line) {
+			continue
+		}
+		port, err := strconv.Atoi(line)
+		if err == nil && port > 0 && port < 65536 && !seen[port] {
+			seen[port] = true
+			ports = append(ports, port)
+		}
+	}
+	sort.Ints(ports)
+	return ports, nil
+}
+
+func isDigitsOnly(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }

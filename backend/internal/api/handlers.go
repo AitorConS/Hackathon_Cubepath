@@ -41,14 +41,19 @@ func RegisterRoutes(r chi.Router, api *API, authMiddleware func(http.Handler) ht
 		r.Post("/pods/{id}/stop", api.StopPod)
 		r.Delete("/pods/{id}", api.DeletePod)
 
-		// Terminal WebSocket
+		// Terminal y Logs WebSocket
 		r.HandleFunc("/pods/{id}/terminal", api.TerminalHandler)
+		r.HandleFunc("/pods/{id}/logs", api.LogsHandler)
 
 		// Gestión de archivos
 		r.Get("/pods/{id}/files", api.ListFiles)
 		r.Get("/pods/{id}/file", api.ReadFile)
 		r.Put("/pods/{id}/file", api.WriteFile)
 		r.Delete("/pods/{id}/file", api.DeleteFile)
+
+		// Métricas y puertos
+		r.Get("/pods/{id}/stats", api.GetPodStats)
+		r.Get("/pods/{id}/ports", api.GetPodPorts)
 
 		// Túneles
 		r.Get("/tunnels", api.GetTunnels)
@@ -332,6 +337,47 @@ func (a *API) WriteFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte(`{"status":"success"}`))
+}
+
+func (a *API) GetPodStats(w http.ResponseWriter, r *http.Request) {
+	podID := chi.URLParam(r, "id")
+	userID := auth.GetUserID(r.Context())
+
+	pod, err := a.DB.GetPodByID(podID, userID)
+	if err != nil || pod.DockerContainerID == "" {
+		http.Error(w, "Pod no encontrado", http.StatusNotFound)
+		return
+	}
+
+	stats, err := a.Docker.GetStats(r.Context(), pod.DockerContainerID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+func (a *API) GetPodPorts(w http.ResponseWriter, r *http.Request) {
+	podID := chi.URLParam(r, "id")
+	userID := auth.GetUserID(r.Context())
+
+	pod, err := a.DB.GetPodByID(podID, userID)
+	if err != nil || pod.DockerContainerID == "" {
+		http.Error(w, "Pod no encontrado", http.StatusNotFound)
+		return
+	}
+
+	ports, err := a.Docker.GetListeningPorts(r.Context(), pod.DockerContainerID)
+	if err != nil || ports == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("[]"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(ports)
 }
 
 func (a *API) DeleteFile(w http.ResponseWriter, r *http.Request) {
