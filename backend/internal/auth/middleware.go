@@ -20,7 +20,6 @@ func Middleware(cfg *config.Config) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tokenString := ""
 
-			// 1. Intentar cabecera Authorization
 			authHeader := r.Header.Get("Authorization")
 			if authHeader != "" {
 				parts := strings.Split(authHeader, " ")
@@ -28,8 +27,6 @@ func Middleware(cfg *config.Config) func(http.Handler) http.Handler {
 					tokenString = parts[1]
 				}
 			}
-
-			// 2. Intentar parámetro de consulta '?token=' (para WebSockets)
 			if tokenString == "" {
 				tokenString = r.URL.Query().Get("token")
 			}
@@ -39,7 +36,6 @@ func Middleware(cfg *config.Config) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Usar ParseUnverified para inspeccionar rápidamente el payload sin verificación de firma criptográfica
 			token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
 			if err != nil {
 				log.Printf("Token Parse Error: %v", err)
@@ -53,21 +49,18 @@ func Middleware(cfg *config.Config) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Supabase establece "sub" como el UUID del usuario
 			sub, ok := claims["sub"].(string)
 			if !ok || sub == "" {
 				http.Error(w, "Sujeto de usuario inválido en el token", http.StatusUnauthorized)
 				return
 			}
 
-			// Añadir ID de usuario al contexto
 			ctx := context.WithValue(r.Context(), UserIDKey, sub)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-// GetUserID recupera el ID de usuario del contexto
 func GetUserID(ctx context.Context) string {
 	if val, ok := ctx.Value(UserIDKey).(string); ok {
 		return val

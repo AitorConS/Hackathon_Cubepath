@@ -11,8 +11,8 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
-// wsWriter wraps a WebSocket connection as an io.Writer so stdcopy can demux
-// the Docker multiplexed log stream and send each chunk as a WS message.
+// wsWriter envuelve una conexión WebSocket como un io.Writer para que stdcopy
+// pueda desmultiplexar el flujo de registros de Docker y enviar cada fragmento como mensaje WS.
 type wsWriter struct {
 	conn *websocket.Conn
 }
@@ -51,9 +51,7 @@ func (a *API) LogsHandler(w http.ResponseWriter, r *http.Request) {
 
 	writer := &wsWriter{conn: conn}
 
-	// stdcopy demultiplexes the Docker log stream (stdout + stderr) and writes
-	// clean text to the WebSocket without the 8-byte framing headers.
-	if _, err := stdcopy.StdCopy(writer, writer, logReader); err != nil {
+	if _, err := stdcopy.StdCopy(writer, writer, logReader); err != {
 		log.Printf("Log stream finalizado para pod %s: %v", podID, err)
 	}
 }

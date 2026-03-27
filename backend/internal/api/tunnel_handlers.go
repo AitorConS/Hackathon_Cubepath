@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -28,7 +27,6 @@ func (a *API) GetTunnels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enriquecer con el estado en vivo desde el servicio de túnel
 	for i := range tunnels {
 		if a.Tunnel.IsRunning(tunnels[i].ID.String()) {
 			tunnels[i].Status = "active"
@@ -63,7 +61,6 @@ func (a *API) CreateTunnel(w http.ResponseWriter, r *http.Request) {
 	userUUID, _ := uuid.Parse(userID)
 	podUUID, _ := uuid.Parse(req.PodID)
 
-	// Insertar registro de túnel como "starting"
 	t := &db.Tunnel{
 		ID:        tunnelID,
 		UserID:    userUUID,
@@ -79,7 +76,6 @@ func (a *API) CreateTunnel(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Iniciar túnel sidecar de forma asíncrona
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	go func() {
 		defer cancel()
@@ -109,7 +105,6 @@ func (a *API) DeleteTunnel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if a.DB != nil {
-		_ = userID // la propiedad ya se verificó implícitamente a través de la consulta a la DB
 		a.DB.DeleteTunnel(tunnelID)
 	}
 
@@ -133,6 +128,4 @@ func (a *API) GetTunnelStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
-
-	_ = strconv.Itoa(0) // silenciar importación no utilizada
 }

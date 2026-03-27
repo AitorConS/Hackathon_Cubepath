@@ -3,8 +3,6 @@
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 
-// ─── Escena del Barco Animada ────────────────────────────────────────────────────
-
 function ShipScene() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -26,11 +24,11 @@ function ShipScene() {
 
     // Colores de contenedores que coinciden con la paleta de CubePod
     const containerColors = [
-      '#3b82f6', // blue-500
-      '#1d4ed8', // blue-700
-      '#2563eb', // blue-600
-      '#6366f1', // indigo
-      '#0ea5e9', // sky
+      '#3b82f6',
+      '#1d4ed8',
+      '#2563eb',
+      '#6366f1',
+      '#0ea5e9',
     ]
 
     function drawWaves(t: number) {
@@ -61,7 +59,6 @@ function ShipScene() {
       const h = canvas!.height
       const waterLine = h * 0.65
 
-      // Ship scale based on canvas width
       const scale = Math.min(w / 900, 1.4)
       const shipW = 280 * scale
       const hull = waterLine + bobY
@@ -70,7 +67,6 @@ function ShipScene() {
       ctx!.save()
       ctx!.translate(x - shipW / 2, 0)
 
-      // Casco
       ctx!.beginPath()
       ctx!.moveTo(0, hull)
       ctx!.lineTo(shipW * 0.08, hull + hullH)
@@ -83,12 +79,10 @@ function ShipScene() {
       ctx!.lineWidth = 1.5
       ctx!.stroke()
 
-      // Cubierta
       ctx!.fillStyle = '#0f172a'
       ctx!.fillRect(shipW * 0.05, hull - 8 * scale, shipW * 0.9, 10 * scale)
 
-      // Contenedores — 2 filas, 4 columnas
-      const cols = 4
+      const startX = shipW * 0.14
       const rows = 2
       const cW = (shipW * 0.72) / cols
       const cH = 22 * scale
@@ -100,10 +94,8 @@ function ShipScene() {
           const color = containerColors[(row * cols + col) % containerColors.length]
           ctx!.fillStyle = color
           ctx!.fillRect(cx, cy, cW, cH)
-          // Resaltado de borde
           ctx!.fillStyle = 'rgba(255,255,255,0.08)'
           ctx!.fillRect(cx, cy, cW, 3 * scale)
-          // Nervaduras del contenedor
           ctx!.strokeStyle = 'rgba(0,0,0,0.3)'
           ctx!.lineWidth = 0.8
           for (let r = 1; r < 3; r++) {
@@ -122,22 +114,18 @@ function ShipScene() {
       const bridgeY = hull - 8 * scale - bridgeH
       ctx!.fillStyle = '#1e3a5f'
       ctx!.fillRect(bridgeX, bridgeY, bridgeW, bridgeH)
-      // Ventanas
       ctx!.fillStyle = '#bae6fd'
       for (let wi = 0; wi < 3; wi++) {
         ctx!.fillRect(bridgeX + 6 * scale + wi * 10 * scale, bridgeY + 8 * scale, 6 * scale, 5 * scale)
         ctx!.fillRect(bridgeX + 6 * scale + wi * 10 * scale, bridgeY + 20 * scale, 6 * scale, 5 * scale)
       }
-      // Chimenea
       ctx!.fillStyle = '#1e293b'
       ctx!.fillRect(bridgeX + bridgeW * 0.3, bridgeY - 20 * scale, 12 * scale, 22 * scale)
 
-      // Partículas de humo de la chimenea
       const smokeBaseX = x - shipW / 2 + bridgeX + bridgeW * 0.3 + 6 * scale
       const smokeBaseY = hull - 8 * scale - bridgeH - 20 * scale
       ctx!.restore()
 
-      // Dibujar humo fuera de la traslación del barco
       for (let s = 0; s < 5; s++) {
         const st = (tick * 0.4 + s * 14) % 60
         const sx = smokeBaseX - st * 0.5
@@ -151,7 +139,6 @@ function ShipScene() {
       }
     }
 
-    // Pequeños pájaros (decorativos)
     function drawBirds(t: number) {
       const w = canvas!.width
       const h = canvas!.height
@@ -175,7 +162,6 @@ function ShipScene() {
 
       ctx!.clearRect(0, 0, w, h)
 
-      // Estrellas / puntos en el fondo
       ctx!.fillStyle = 'rgba(148,163,184,0.08)'
       for (let i = 0; i < 40; i++) {
         const sx = (i * 173 % w + tick * (i % 3 === 0 ? 0.2 : 0)) % w
@@ -188,7 +174,6 @@ function ShipScene() {
       drawBirds(tick)
       drawWaves(tick)
 
-      // Barco: recorre lentamente de derecha a izquierda
       const speed = w * 0.018
       const shipX = w + 200 - ((tick * speed) % (w + 500))
       const bob = Math.sin(tick * 1.2) * 3
@@ -214,8 +199,6 @@ function ShipScene() {
   )
 }
 
-// ─── Tarjeta de Funcionalidad ─────────────────────────────────────────────────────────────
-
 function FeatureCard({ icon, title, desc }: { icon: string; title: string; desc: string }) {
   return (
     <div className="group relative flex flex-col gap-3 rounded-2xl border border-gray-800 bg-gray-900/60 p-6 backdrop-blur-sm transition-all duration-300 hover:border-blue-500/40 hover:bg-gray-900">
@@ -228,13 +211,10 @@ function FeatureCard({ icon, title, desc }: { icon: string; title: string; desc:
   )
 }
 
-// ─── Página ────────────────────────────────────────────────────────────────────
-
 export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-950 text-white overflow-x-hidden">
 
-      {/* ── Header ── */}
       <header className="sticky top-0 z-50 border-b border-gray-800/60 bg-gray-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
@@ -258,9 +238,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* ── Hero ── */}
       <section className="relative flex flex-col items-center justify-center px-6 pt-20 pb-0 text-center">
-        {/* Brillo sutil */}
         <div
           className="pointer-events-none absolute inset-x-0 top-0 h-80 opacity-30"
           style={{
@@ -268,7 +246,6 @@ export default function LandingPage() {
           }}
         />
 
-        {/* Etiqueta */}
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-1.5 text-xs font-medium text-blue-400">
           <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
           Gestión de contenedores, simplificada
@@ -303,7 +280,6 @@ export default function LandingPage() {
           </Link>
         </div>
 
-        {/* Escenario de Animación del Barco */}
         <div
           className="relative mt-16 w-full max-w-5xl overflow-hidden rounded-t-3xl border-x border-t border-gray-800/70"
           style={{ height: '280px', background: 'linear-gradient(to bottom, #060b14 0%, #071426 55%, #0c1f3f 100%)' }}
@@ -312,7 +288,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Features ── */}
       <section className="mx-auto w-full max-w-5xl px-6 py-20">
         <div className="mb-12 text-center">
           <h2 className="text-3xl font-bold text-white">Todo lo que necesitas</h2>
@@ -352,7 +327,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Banner de CTA ── */}
       <section className="border-t border-gray-800/80 bg-gray-950 px-6 py-24 text-center">
         <h2 className="text-3xl font-bold tracking-tight text-white mb-6">¿Listo para empezar?</h2>
         <p className="mx-auto max-w-lg text-gray-400 mb-10">
@@ -366,7 +340,6 @@ export default function LandingPage() {
         </Link>
       </section>
 
-      {/* ── Pie de página ── */}
       <footer className="border-t border-gray-900 bg-gray-950 px-6 py-12">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 sm:flex-row">
           <span className="text-sm text-gray-500">

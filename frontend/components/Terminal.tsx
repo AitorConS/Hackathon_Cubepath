@@ -43,14 +43,6 @@ export default function TerminalComponent({ podId }: { podId: string }) {
       
       ws.onopen = () => {
         term.writeln('\x1b[32mConectado correctamente a la terminal del pod.\x1b[0m')
-        
-        // Autenticación personalizada a través del primer mensaje o podemos pasar el token a través del parámetro de consulta.
-        // Por simplicidad y dado que los Websockets del navegador no soportan cabeceras personalizadas fácilmente,
-        // en realidad necesitaremos enviar el token en la conexión o ponerlo en la cadena de consulta.
-        // Espera, el backend actualmente lo espera en la cabecera Authorization a través del middleware.
-        // ¡Los navegadores NO soportan cabeceras Authorization en WebSockets!
-        // Lo pasaremos como un parámetro de consulta `?token=` y ajustaremos el backend, o dado que es un MVP,
-        // simplemente lo emitiremos como el primer mensaje o parámetro de consulta. Supongamos un parámetro de consulta estándar.
       }
 
       ws.onmessage = (event) => {
@@ -72,8 +64,6 @@ export default function TerminalComponent({ podId }: { podId: string }) {
       })
     }
 
-    // NOTE: This relies on Backend reading the token from query string if headers fail!
-    // I need to go back and update the backend middleware in a sec.
     let isMounted = true
     initWs()
 

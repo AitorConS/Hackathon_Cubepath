@@ -54,7 +54,6 @@ export default function PodStats({ podId }: { podId: string }) {
         setStats(data)
       }
     } catch {
-      // silently ignore — pod may be stopped
     }
   }, [apiUrl, podId])
 

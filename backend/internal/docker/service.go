@@ -15,7 +15,7 @@ import (
 	"github.com/docker/docker/client"
 )
 
-// ContainerStats holds real-time resource usage for a container
+// ContainerStats almacena el uso de recursos en tiempo real para un contenedor
 type ContainerStats struct {
 	CPUPercent float64 `json:"cpu_percent"`
 	MemUsage   uint64  `json:"mem_usage"`
@@ -37,17 +37,15 @@ func NewService() (*Service, error) {
 	return &Service{cli: cli}, nil
 }
 
-// PullImage ensures the image is available locally
+// PullImage descarga la imagen de Docker si no está disponible localmente
 func (s *Service) PullImage(ctx context.Context, imageName string) error {
-	log.Printf("Pulling image %s...", imageName)
+	log.Printf("Descargando imagen %s...", imageName)
 	reader, err := s.cli.ImagePull(ctx, imageName, types.ImagePullOptions{})
 	if err != nil {
 		return err
 	}
 	defer reader.Close()
 
-	// Just consume to wait for pull
-	// In a complete app we would stream/log this output
 	buf := make([]byte, 1024)
 	for {
 		_, err := reader.Read(buf)
@@ -58,25 +56,23 @@ func (s *Service) PullImage(ctx context.Context, imageName string) error {
 	return nil
 }
 
-// CreateContainer creates a container from the given image with a command, returning the ID
+// CreateContainer crea un contenedor a partir de la imagen especificada
 func (s *Service) CreateContainer(ctx context.Context, imageName, containerName, cmdStr string) (string, error) {
 	var cmd []string
 	if cmdStr != "" {
-		// Just a simple split for now; realistically requires parsing
 		cmd = []string{"sh", "-c", cmdStr}
 	}
 
 	resp, err := s.cli.ContainerCreate(ctx, &container.Config{
 		Image:     imageName,
 		Cmd:       cmd,
-		Tty:       true, // Needed for interactive terminals
-		OpenStdin: true,
-	}, &container.HostConfig{
-		AutoRemove: false,
-		Resources: container.Resources{
-			Memory:   512 * 1024 * 1024, // 512 MB
-			NanoCPUs: 1_000_000_000,     // 1 vCPU
-		},
+			Tty:       true,
+			OpenStdin: true,
+		}, &container.HostConfig{
+			AutoRemove: false,
+			Resources: container.Resources{
+				Memory:   512 * 1024 * 1024,
+				NanoCPUs: 1_000_000_000,
 	}, nil, nil, containerName)
 
 	if err != nil {
@@ -91,7 +87,7 @@ func (s *Service) StartContainer(ctx context.Context, containerID string) error 
 }
 
 func (s *Service) StopContainer(ctx context.Context, containerID string) error {
-	timeout := 10 // stop timeout in seconds
+	timeout := 10
 	return s.cli.ContainerStop(ctx, containerID, container.StopOptions{Timeout: &timeout})
 }
 
@@ -144,8 +140,7 @@ func (s *Service) GetClient() *client.Client {
 	return s.cli
 }
 
-// StreamLogs returns a reader that streams the container's stdout+stderr logs.
-// The caller must close the returned ReadCloser when done.
+// StreamLogs retorna un lector que transmite los registros stdout+stderr del contenedor.
 func (s *Service) StreamLogs(ctx context.Context, containerID string) (io.ReadCloser, error) {
 	return s.cli.ContainerLogs(ctx, containerID, types.ContainerLogsOptions{
 		ShowStdout: true,
@@ -156,7 +151,7 @@ func (s *Service) StreamLogs(ctx context.Context, containerID string) (io.ReadCl
 	})
 }
 
-// GetStats returns a one-shot snapshot of CPU, memory, and network usage
+// GetStats retorna una snapshot de uso de CPU, memoria y red
 func (s *Service) GetStats(ctx context.Context, containerID string) (*ContainerStats, error) {
 	resp, err := s.cli.ContainerStats(ctx, containerID, false)
 	if err != nil {
@@ -169,7 +164,6 @@ func (s *Service) GetStats(ctx context.Context, containerID string) (*ContainerS
 		return nil, fmt.Errorf("failed to decode stats: %w", err)
 	}
 
-	// CPU percent: delta between current and previous sample
 	cpuDelta := float64(statsJSON.CPUStats.CPUUsage.TotalUsage - statsJSON.PreCPUStats.CPUUsage.TotalUsage)
 	systemDelta := float64(statsJSON.CPUStats.SystemUsage - statsJSON.PreCPUStats.SystemUsage)
 	numCPUs := float64(statsJSON.CPUStats.OnlineCPUs)
@@ -184,7 +178,6 @@ func (s *Service) GetStats(ctx context.Context, containerID string) (*ContainerS
 		cpuPercent = (cpuDelta / systemDelta) * numCPUs * 100.0
 	}
 
-	// Memory
 	memUsage := statsJSON.MemoryStats.Usage
 	memLimit := statsJSON.MemoryStats.Limit
 	var memPercent float64
@@ -192,7 +185,6 @@ func (s *Service) GetStats(ctx context.Context, containerID string) (*ContainerS
 		memPercent = float64(memUsage) / float64(memLimit) * 100.0
 	}
 
-	// Network I/O (sum across all interfaces)
 	var rxBytes, txBytes uint64
 	for _, netStats := range statsJSON.Networks {
 		rxBytes += netStats.RxBytes
@@ -209,14 +201,13 @@ func (s *Service) GetStats(ctx context.Context, containerID string) (*ContainerS
 	}, nil
 }
 
-// GetListeningPorts returns the list of TCP ports the container is actively listening on
+// GetListeningPorts retorna la lista de puertos TCP en los que el contenedor está escuchando
 func (s *Service) GetListeningPorts(ctx context.Context, containerID string) ([]int, error) {
-	// Use ss to get listening ports; extract the port number after the last colon
 	out, err := s.ExecCommand(ctx, containerID, []string{
 		"sh", "-c", `ss -tlnp 2>/dev/null | awk 'NR>1{n=split($4,a,":");print a[n]}'`,
 	})
 	if err != nil {
-		return []int{}, nil // container may not have ss — return empty gracefully
+		return []int{}, nil
 	}
 
 	seen := map[int]bool{}

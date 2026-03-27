@@ -113,8 +113,6 @@ func (a *API) CreatePod(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	// Validar límite máximo de 3 contenedores por usuario
 	if a.DB != nil {
 		pods, err := a.DB.GetPodsByUser(userID)
 		if err != nil {
@@ -135,20 +133,17 @@ func (a *API) CreatePod(w http.ResponseWriter, r *http.Request) {
 
 	dockerImage := tpl.DockerImage
 	if req.Version != "" {
-		// Reemplazar el tag o añadirlo si no existe.
-		// división simplificada para imágenes estándar como "ubuntu:22.04" -> "ubuntu" + ":" + versión
 		parts := strings.Split(dockerImage, ":")
 		dockerImage = parts[0] + ":" + req.Version
 	}
 
-	// 1. Guardar pod en la DB con status "creating"
 	userUUID, _ := uuid.Parse(userID)
 	containerName := "pod-" + uuid.New().String()[:8]
 	pod := &db.Pod{
 		UserID:            userUUID,
 		TemplateID:        tpl.ID,
 		Name:              req.Name,
-		DockerContainerID: "", // Se llenará cuando se cree el contenedor
+		DockerContainerID: "",
 		Status:            "creating",
 	}
 
@@ -157,11 +152,9 @@ func (a *API) CreatePod(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Iniciar deployment asincronista en un goroutine
 	go func() {
 		ctx := context.Background()
 
-		// Descargar imagen
 		err := a.Docker.PullImage(ctx, dockerImage)
 		if err != nil {
 			fmt.Printf("Error pulling image for pod %s: %v\n", pod.ID, err)
@@ -169,7 +162,6 @@ func (a *API) CreatePod(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Crear e Iniciar Contenedor Docker
 		containerID, err := a.Docker.CreateContainer(ctx, dockerImage, containerName, tpl.DefaultCommand)
 		if err != nil {
 			fmt.Printf("Error creating container for pod %s: %v\n", pod.ID, err)
@@ -184,12 +176,9 @@ func (a *API) CreatePod(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Actualizar el pod con el ID del contenedor y status "running"
 		a.DB.UpdatePodContainerID(pod.ID.String(), containerID)
 		a.DB.UpdatePodStatus(pod.ID.String(), "running")
 	}()
-
-	// 3. Devolver el pod con status "creating"
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(pod)
 }

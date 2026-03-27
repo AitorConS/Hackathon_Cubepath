@@ -13,19 +13,19 @@ import (
 	dockerclient "github.com/docker/docker/client"
 )
 
-// ActiveTunnel represents a running cloudflared sidecar container
+// ActiveTunnel representa un contenedor sidecar cloudflared en ejecución
 type ActiveTunnel struct {
 	ID          string
 	PodID       string
 	Port        int
 	PublicURL   string
-	ContainerID string // the cloudflared sidecar container
+	ContainerID string
 }
 
-// Service manages all active cloudflared tunnel sidecar containers
+// Service gestiona todos los contenedores sidecar de túneles cloudflared activos
 type Service struct {
 	mu      sync.RWMutex
-	tunnels map[string]*ActiveTunnel // key: tunnel ID
+	tunnels map[string]*ActiveTunnel
 	cli     *dockerclient.Client
 }
 
@@ -36,16 +36,13 @@ func NewService(cli *dockerclient.Client) *Service {
 	}
 }
 
-// StartTunnel launches a cloudflare/cloudflared sidecar container that shares
-// the target pod container's network namespace. This ensures that cloudflared
-// can reach `localhost:<port>` even on Windows where host→container routing is unreliable.
+// StartTunnel inicia un contenedor sidecar cloudflared que comparte el namespace de red del contenedor pod destino
 func (s *Service) StartTunnel(ctx context.Context, tunnelID, podContainerID string, port int) (string, error) {
 	targetURL := fmt.Sprintf("http://localhost:%d", port)
 
 	// Pull the cloudflared image if not present (best-effort)
 	reader, err := s.cli.ImagePull(ctx, "cloudflare/cloudflared:latest", types.ImagePullOptions{})
 	if err == nil {
-		// Just drain the reader
 		buf := make([]byte, 1024)
 		for {
 			_, err := reader.Read(buf)
@@ -64,7 +61,6 @@ func (s *Service) StartTunnel(ctx context.Context, tunnelID, podContainerID stri
 			Cmd:   []string{"tunnel", "--url", targetURL, "--no-autoupdate"},
 		},
 		&container.HostConfig{
-			// Share the target pod's network namespace
 			NetworkMode: container.NetworkMode(fmt.Sprintf("container:%s", podContainerID)),
 			AutoRemove:  true,
 		},
@@ -107,13 +103,11 @@ func (s *Service) StartTunnel(ctx context.Context, tunnelID, podContainerID stri
 		}
 	}()
 
-	// Wait for URL
 	var publicURL string
 	select {
 	case publicURL = <-urlCh:
-		log.Printf("Tunnel %s established at %s", tunnelID, publicURL)
+		log.Printf("Túnel %s establecido en %s", tunnelID, publicURL)
 	case <-ctx.Done():
-		// Kill the sidecar if timeout
 		s.cli.ContainerKill(context.Background(), resp.ID, "SIGKILL")
 		return "", fmt.Errorf("timeout waiting for tunnel URL")
 	}
@@ -132,7 +126,7 @@ func (s *Service) StartTunnel(ctx context.Context, tunnelID, podContainerID stri
 	return publicURL, nil
 }
 
-// StopTunnel kills the cloudflared sidecar container
+// StopTunnel detiene el contenedor sidecar cloudflared
 func (s *Service) StopTunnel(tunnelID string) error {
 	s.mu.Lock()
 	at, ok := s.tunnels[tunnelID]
@@ -142,7 +136,7 @@ func (s *Service) StopTunnel(tunnelID string) error {
 	s.mu.Unlock()
 
 	if !ok {
-		return nil // already gone
+		return nil
 	}
 
 	timeout := 5

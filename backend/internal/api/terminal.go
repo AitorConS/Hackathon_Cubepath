@@ -12,21 +12,13 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		// Validar el origen para mayor seguridad
 		return true
-		/* 		origin := r.Header.Get("Origin")
-		   		if origin == "https://tudominio.com" {
-		   			return true
-		   		}
-		   		return false */
 	},
 }
 
 func (a *API) TerminalHandler(w http.ResponseWriter, r *http.Request) {
 	podID := chi.URLParam(r, "id")
 	userID := auth.GetUserID(r.Context())
-
-	log.Printf("Terminal WS solicitado para el pod %s por el usuario %s", podID, userID)
 
 	pod, err := a.DB.GetPodByID(podID, userID)
 	if err != nil || pod.DockerContainerID == "" {
@@ -49,7 +41,6 @@ func (a *API) TerminalHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Close()
 
-	// Leer de Docker, escribir en WebSocket
 	go func() {
 		buf := make([]byte, 1024)
 		for {
@@ -63,7 +54,6 @@ func (a *API) TerminalHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// Leer de WebSocket, escribir en Docker
 	for {
 		_, p, err := conn.ReadMessage()
 		if err != nil {

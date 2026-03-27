@@ -17,10 +17,8 @@ import (
 )
 
 func main() {
-	// 1. Cargar configuración
 	cfg := config.LoadConfig()
 
-	// 2. Inicializar conexión a la DB
 	var database *db.Database
 	if cfg.SupabaseDB != "" {
 		dbConn, err := db.Connect(cfg.SupabaseDB)
@@ -33,26 +31,22 @@ func main() {
 		log.Println("ADVERTENCIA: SUPABASE_DB no está configurado, funcionando sin DB por ahora.")
 	}
 
-	// 3. Inicializar servicio de Docker
 	dockerService, err := docker.NewService()
 	if err != nil {
 		log.Fatalf("Error al inicializar el servicio de Docker: %v", err)
 	}
 
-	// 4. Configurar el Router
-
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// CORS básico
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
-		MaxAge:           300, 
+		MaxAge:           300,
 	}))
 
 	authMiddleware := auth.Middleware(cfg)

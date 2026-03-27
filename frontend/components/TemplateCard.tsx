@@ -20,7 +20,6 @@ export default function TemplateCard({ tpl }: { tpl: any }) {
   const [availableTags, setAvailableTags] = useState<string[]>([])
   const [loadingTags, setLoadingTags] = useState(false)
 
-  // Buscar etiquetas solo cuando el modal se abre por primera vez
   useEffect(() => {
     if (showModal && availableTags.length === 0) {
       setLoadingTags(true)
@@ -28,7 +27,6 @@ export default function TemplateCard({ tpl }: { tpl: any }) {
         .then(res => res.json())
         .then(data => {
           let tags = data.tags || []
-          // Asegurar que la versión por defecto esté siempre en la lista
           if (!tags.includes(defaultVersion)) {
              tags = [defaultVersion, ...tags]
           }
@@ -94,10 +92,7 @@ export default function TemplateCard({ tpl }: { tpl: any }) {
       }
 
       const pod = await res.json()
-      console.log("Pod created:", pod)
       setShowModal(false)
-      
-      // Redirigir a la página del pod
       if (pod.ID) {
         router.push(`/pods/${pod.ID}`)
       }
