@@ -28,7 +28,7 @@ Pd: Tuve un poco de asistencia de Claude, sobretodo en el front 😅
 ### 1. Supabase
 
 1. Crea un proyecto en [supabase.com](https://supabase.com).
-2. Ejecuta el contenido de `SQL/schema.sql` en el editor SQL de Supabase.
+2. Ejecuta el contenido de `SQL/schema.sql` y `SQL/add_tunnels.sql` en el editor SQL de Supabase.
 3. Copia la **URL del proyecto**, la **clave Anon** y el **secreto JWT** desde los ajustes del proyecto.
 
 ### 2. Backend
